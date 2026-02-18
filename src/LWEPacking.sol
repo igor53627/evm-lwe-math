@@ -50,6 +50,8 @@ library LWEPacking {
         returns (uint256[] memory unpacked)
     {
         unpacked = new uint256[](n);
+        if (n == 0) return unpacked;
+        require(packed.length >= (n + 20) / 21, "packed array too small for n");
         uint256 wordIndex = 0;
         uint256 countInWord = 0;
         uint256 currentWord = packed[0];
@@ -82,6 +84,7 @@ library LWEPacking {
         pure
         returns (uint256[] memory packed)
     {
+        require(q > 0 && q <= 65536, "q must fit in 16-bit lanes");
         uint256 n = input.length;
         uint256 packedSize = (n + 15) / 16;
         packed = new uint256[](packedSize);

@@ -24,6 +24,7 @@ library LibLWE {
         uint256 numWords,
         uint256 q
     ) internal pure returns (uint256 result) {
+        require(a.length >= numWords && s.length >= numWords, "numWords exceeds array length");
         assembly {
             let aPtr := add(a, 32)
             let sPtr := add(s, 32)
@@ -80,6 +81,7 @@ library LibLWE {
         uint256 numWords,
         uint256 q
     ) internal pure returns (uint256 result) {
+        require(s.length >= numWords, "numWords exceeds array length");
         assembly {
             let sPtr := add(s, 32)
             let acc := 0
@@ -135,6 +137,7 @@ library LibLWE {
         uint256 numWords,
         uint256 qMask
     ) internal pure returns (uint256 result) {
+        require(a.length >= numWords && s.length >= numWords, "numWords exceeds array length");
         assembly {
             let aPtr := add(a, 32)
             let sPtr := add(s, 32)
@@ -247,6 +250,7 @@ library LibLWE {
         pure
         returns (uint256[] memory s)
     {
+        require(q > 0 && q <= 65536, "q must fit in 16-bit lanes");
         s = new uint256[](numWords);
         assembly {
             let sPtr := add(s, 32)

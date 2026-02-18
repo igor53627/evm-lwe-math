@@ -6,7 +6,29 @@ import {LibLWE} from "../src/LibLWE.sol";
 import {LWEPacking} from "../src/LWEPacking.sol";
 import {LWETestUtils} from "../src/LWETestUtils.sol";
 
+/// @dev Wrapper to test library reverts via external calls.
+contract LibLWEHarness {
+    function innerProduct16(uint256[] memory a, uint256[] memory s, uint256 numWords, uint256 q)
+        external pure returns (uint256) { return LibLWE.innerProduct16(a, s, numWords, q); }
+    function innerProduct12(uint256[] memory a, uint256[] memory s, uint256 numWords, uint256 qMask)
+        external pure returns (uint256) { return LibLWE.innerProduct12(a, s, numWords, qMask); }
+    function innerProductSeedDerived(bytes32 d, bytes32 seed, uint256 i0, uint256 i1, uint256[] memory s, uint256 nw, uint256 q)
+        external pure returns (uint256) { return LibLWE.innerProductSeedDerived(d, seed, i0, i1, s, nw, q); }
+    function expandKey(bytes32 keySeed, uint256 numWords, uint256 q)
+        external pure returns (uint256[] memory) { return LibLWE.expandKey(keySeed, numWords, q); }
+    function packVector16(uint256[] memory input, uint256 q)
+        external pure returns (uint256[] memory) { return LWEPacking.packVector16(input, q); }
+    function unpackVector12(uint256[] memory packed, uint256 n)
+        external pure returns (uint256[] memory) { return LWEPacking.unpackVector12(packed, n); }
+}
+
 contract LibLWETest is Test {
+    LibLWEHarness harness;
+
+    function setUp() public {
+        harness = new LibLWEHarness();
+    }
+
     // ──────────────────────────────────────────────────────────────────
     //  16-bit inner product tests (TLOS-style, q=65521)
     // ──────────────────────────────────────────────────────────────────
@@ -360,5 +382,53 @@ contract LibLWETest is Test {
         uint256 libResult = LibLWE.innerProduct12(aPacked, sPacked, aPacked.length, Q_MASK);
 
         assertEq(libResult, naiveResult, "Packed 12-bit inner product must match naive");
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  Edge-case / revert tests
+    // ──────────────────────────────────────────────────────────────────
+
+    function test_innerProduct16_revertOnOversizedNumWords() public {
+        uint256[] memory a = new uint256[](2);
+        uint256[] memory s = new uint256[](2);
+        vm.expectRevert("numWords exceeds array length");
+        harness.innerProduct16(a, s, 3, Q_PRIME);
+    }
+
+    function test_innerProduct12_revertOnOversizedNumWords() public {
+        uint256[] memory a = new uint256[](1);
+        uint256[] memory s = new uint256[](1);
+        vm.expectRevert("numWords exceeds array length");
+        harness.innerProduct12(a, s, 2, Q_MASK);
+    }
+
+    function test_innerProductSeedDerived_revertOnOversizedNumWords() public {
+        uint256[] memory s = new uint256[](1);
+        vm.expectRevert("numWords exceeds array length");
+        harness.innerProductSeedDerived(bytes32(0), bytes32(0), 0, 0, s, 2, Q_PRIME);
+    }
+
+    function test_unpackVector12_emptyInput() public pure {
+        uint256[] memory packed = new uint256[](0);
+        uint256[] memory unpacked = LWEPacking.unpackVector12(packed, 0);
+        assertEq(unpacked.length, 0);
+    }
+
+    function test_unpackVector12_revertOnInsufficientPacked() public {
+        uint256[] memory packed = new uint256[](1); // holds 21 elements max
+        vm.expectRevert("packed array too small for n");
+        harness.unpackVector12(packed, 22); // needs 2 words
+    }
+
+    function test_expandKey_revertOnOversizedQ() public {
+        vm.expectRevert("q must fit in 16-bit lanes");
+        harness.expandKey(bytes32(0), 1, 65537);
+    }
+
+    function test_packVector16_revertOnOversizedQ() public {
+        uint256[] memory input = new uint256[](1);
+        input[0] = 0;
+        vm.expectRevert("q must fit in 16-bit lanes");
+        harness.packVector16(input, 65537);
     }
 }
