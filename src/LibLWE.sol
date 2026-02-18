@@ -6,6 +6,13 @@ pragma solidity ^0.8.20;
 /// @dev Supports both prime moduli (e.g. q=65521) and power-of-2 moduli (e.g. q=4096).
 ///      All inner-product functions use packed representations for gas efficiency.
 library LibLWE {
+    uint256 internal constant BIT_WIDTH_16 = 16;
+    uint256 internal constant ELEMENTS_PER_WORD_16 = 16;
+    uint256 internal constant MASK_16 = 0xFFFF;
+    uint256 internal constant BIT_WIDTH_12 = 12;
+    uint256 internal constant ELEMENTS_PER_WORD_12 = 21;
+    uint256 internal constant MASK_12 = 0xFFF;
+
     // ──────────────────────────────────────────────────────────────────────
     //  16-bit packed inner product (prime modulus)
     //  Layout: 16 elements per uint256, MSB-first (bits 240..255 = element 0)
@@ -250,6 +257,7 @@ library LibLWE {
         pure
         returns (uint256[] memory s)
     {
+        if (numWords == 0) return new uint256[](0);
         require(q > 0 && q <= 65536, "q must fit in 16-bit lanes");
         s = new uint256[](numWords);
         assembly {
@@ -295,14 +303,16 @@ library LibLWE {
     }
 
     /// @notice Threshold decode: returns 1 if diff is in the "true" band.
-    /// @dev For q/4 threshold: true band is (q/4, 3q/4).
+    /// @dev For q/4 threshold: true band is (threshold, 3*threshold].
+    ///      Uses `le` (<=) on the upper bound to correctly include 3*threshold
+    ///      when q % 4 != 0 (e.g. q=65521: threshold=16380, 3*threshold=49140).
     function thresholdDecode(uint256 diff, uint256 threshold)
         internal
         pure
         returns (uint256 bit)
     {
         assembly {
-            bit := and(gt(diff, threshold), lt(diff, mul(3, threshold)))
+            bit := and(gt(diff, threshold), iszero(gt(diff, mul(3, threshold))))
         }
     }
 

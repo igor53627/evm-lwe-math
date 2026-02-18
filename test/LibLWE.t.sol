@@ -242,15 +242,27 @@ contract LibLWETest is Test {
     // ──────────────────────────────────────────────────────────────────
 
     function test_thresholdDecode() public pure {
-        uint256 threshold = Q_PRIME / 4;
+        uint256 threshold = Q_PRIME / 4; // 16380 for q=65521
         // Below threshold => 0
         assertEq(LibLWE.thresholdDecode(0, threshold), 0);
         assertEq(LibLWE.thresholdDecode(threshold, threshold), 0);
-        // In true band => 1
+        // In true band (threshold, 3*threshold] => 1
         assertEq(LibLWE.thresholdDecode(threshold + 1, threshold), 1);
         assertEq(LibLWE.thresholdDecode(2 * threshold, threshold), 1);
+        assertEq(LibLWE.thresholdDecode(3 * threshold, threshold), 1); // inclusive upper bound
         // Above 3*threshold => 0
-        assertEq(LibLWE.thresholdDecode(3 * threshold, threshold), 0);
+        assertEq(LibLWE.thresholdDecode(3 * threshold + 1, threshold), 0);
+    }
+
+    function test_thresholdDecode_q65521_boundary() public pure {
+        // Audit finding 1: for q=65521, threshold=16380, 3*threshold=49140
+        // 49140 lies inside the mathematical band (q/4, 3q/4) = (16380.25, 49140.75)
+        // so it must decode as 1
+        uint256 threshold = uint256(65521) / 4; // 16380
+        assertEq(threshold, 16380);
+        assertEq(3 * threshold, 49140);
+        assertEq(LibLWE.thresholdDecode(49140, threshold), 1, "49140 must be in true band");
+        assertEq(LibLWE.thresholdDecode(49141, threshold), 0, "49141 must be outside");
     }
 
     function test_sectorDecode() public pure {
@@ -430,5 +442,16 @@ contract LibLWETest is Test {
         input[0] = 0;
         vm.expectRevert("q must fit in 16-bit lanes");
         harness.packVector16(input, 65537);
+    }
+
+    function test_expandKey_zeroWords_invalidQ() public pure {
+        // Finding 2: expandKey(numWords=0) should return empty array even with invalid q
+        uint256[] memory s = LibLWE.expandKey(bytes32(0), 0, 0);
+        assertEq(s.length, 0);
+    }
+
+    function test_expandKey_zeroWords_validQ() public pure {
+        uint256[] memory s = LibLWE.expandKey(bytes32(0), 0, 65521);
+        assertEq(s.length, 0);
     }
 }
