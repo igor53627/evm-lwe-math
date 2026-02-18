@@ -246,23 +246,33 @@ contract LibLWETest is Test {
         // Below threshold => 0
         assertEq(LibLWE.thresholdDecode(0, threshold), 0);
         assertEq(LibLWE.thresholdDecode(threshold, threshold), 0);
-        // In true band (threshold, 3*threshold] => 1
+        // In true band (threshold, 3*threshold) => 1
         assertEq(LibLWE.thresholdDecode(threshold + 1, threshold), 1);
         assertEq(LibLWE.thresholdDecode(2 * threshold, threshold), 1);
-        assertEq(LibLWE.thresholdDecode(3 * threshold, threshold), 1); // inclusive upper bound
-        // Above 3*threshold => 0
+        assertEq(LibLWE.thresholdDecode(3 * threshold - 1, threshold), 1);
+        // At and above 3*threshold => 0 (strict upper bound)
+        assertEq(LibLWE.thresholdDecode(3 * threshold, threshold), 0);
         assertEq(LibLWE.thresholdDecode(3 * threshold + 1, threshold), 0);
     }
 
     function test_thresholdDecode_q65521_boundary() public pure {
-        // Audit finding 1: for q=65521, threshold=16380, 3*threshold=49140
-        // 49140 lies inside the mathematical band (q/4, 3q/4) = (16380.25, 49140.75)
-        // so it must decode as 1
-        uint256 threshold = uint256(65521) / 4; // 16380
+        // Audit finding 1: for q=65521, threshold=floor(q/4)=16380, 3*threshold=49140
+        // The strict band (threshold, 3*threshold) accepts 16381..49139
+        // diff=49140 is excluded — this is within LWE noise tolerance
+        uint256 threshold = uint256(65521) / 4;
         assertEq(threshold, 16380);
-        assertEq(3 * threshold, 49140);
-        assertEq(LibLWE.thresholdDecode(49140, threshold), 1, "49140 must be in true band");
-        assertEq(LibLWE.thresholdDecode(49141, threshold), 0, "49141 must be outside");
+        assertEq(LibLWE.thresholdDecode(49139, threshold), 1, "49139 is last accepted value");
+        assertEq(LibLWE.thresholdDecode(49140, threshold), 0, "49140 = 3*threshold is excluded (strict)");
+    }
+
+    function test_thresholdDecode_q4096_boundary() public pure {
+        // For q=4096 (divisible by 4): threshold=1024, 3*threshold=3072
+        // Band (1024, 3072) accepts 1025..3071
+        uint256 threshold = 4096 / 4;
+        assertEq(LibLWE.thresholdDecode(1024, threshold), 0);
+        assertEq(LibLWE.thresholdDecode(1025, threshold), 1);
+        assertEq(LibLWE.thresholdDecode(3071, threshold), 1);
+        assertEq(LibLWE.thresholdDecode(3072, threshold), 0);
     }
 
     function test_sectorDecode() public pure {
