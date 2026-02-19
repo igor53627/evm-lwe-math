@@ -116,6 +116,10 @@ forge test -vv
 - [lwe-jump-table](https://github.com/igor53627/lwe-jump-table) - LWE-based control flow flattening
 - [evm-mhf](https://github.com/igor53627/evm-mhf) - Memory-hard function for EVM
 
+## Audit
+
+- [Nethermind AuditAgent scan #36](audits/audit-agent-nethermind-2026-02-18.pdf) (2026-02-18) — 5 Low, 0 High/Medium. All findings addressed in [PR #1](https://github.com/igor53627/evm-lwe-math/pull/1).
+
 ## License
 
 MIT
