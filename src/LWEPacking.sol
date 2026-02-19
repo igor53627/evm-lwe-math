@@ -5,6 +5,15 @@ pragma solidity ^0.8.20;
 /// @notice Pack/unpack utilities for LWE coefficient vectors.
 /// @dev Supports both 12-bit (LSB-first, 21/word) and 16-bit (MSB-first, 16/word) layouts.
 library LWEPacking {
+    uint256 internal constant BIT_WIDTH_12 = 12;
+    uint256 internal constant ELEMENTS_PER_WORD_12 = 21;
+    uint256 internal constant MASK_12 = 0xFFF;
+    uint256 internal constant MAX_12 = 4096;
+
+    uint256 internal constant BIT_WIDTH_16 = 16;
+    uint256 internal constant ELEMENTS_PER_WORD_16 = 16;
+    uint256 internal constant MASK_16 = 0xFFFF;
+
     // ──────────────────────────────────────────────────────────────────────
     //  12-bit packing (LSB-first, 21 elements per uint256)
     //  Used by: lwe-jump-table (q=4096)
@@ -15,7 +24,7 @@ library LWEPacking {
     /// @return packed Array of ceil(n/21) uint256 words
     function packVector12(uint256[] memory input) internal pure returns (uint256[] memory packed) {
         uint256 n = input.length;
-        uint256 packedSize = (n + 20) / 21;
+        uint256 packedSize = (n + ELEMENTS_PER_WORD_12 - 1) / ELEMENTS_PER_WORD_12;
         packed = new uint256[](packedSize);
 
         uint256 currentWord = 0;
@@ -23,11 +32,11 @@ library LWEPacking {
         uint256 wordIndex = 0;
 
         for (uint256 i = 0; i < n; i++) {
-            require(input[i] < 4096, "Element exceeds 12 bits");
-            currentWord |= (input[i] << (countInWord * 12));
+            require(input[i] < MAX_12, "Element exceeds 12 bits");
+            currentWord |= (input[i] << (countInWord * BIT_WIDTH_12));
             countInWord++;
 
-            if (countInWord == 21) {
+            if (countInWord == ELEMENTS_PER_WORD_12) {
                 packed[wordIndex] = currentWord;
                 wordIndex++;
                 currentWord = 0;
@@ -51,16 +60,16 @@ library LWEPacking {
     {
         unpacked = new uint256[](n);
         if (n == 0) return unpacked;
-        require(packed.length >= (n + 20) / 21, "packed array too small for n");
+        require(packed.length >= (n + ELEMENTS_PER_WORD_12 - 1) / ELEMENTS_PER_WORD_12, "packed array too small for n");
         uint256 wordIndex = 0;
         uint256 countInWord = 0;
         uint256 currentWord = packed[0];
 
         for (uint256 i = 0; i < n; i++) {
-            unpacked[i] = (currentWord >> (countInWord * 12)) & 0xFFF;
+            unpacked[i] = (currentWord >> (countInWord * BIT_WIDTH_12)) & MASK_12;
             countInWord++;
 
-            if (countInWord == 21) {
+            if (countInWord == ELEMENTS_PER_WORD_12) {
                 wordIndex++;
                 if (wordIndex < packed.length) {
                     currentWord = packed[wordIndex];
@@ -86,16 +95,16 @@ library LWEPacking {
     {
         require(q > 0 && q <= 65536, "q must fit in 16-bit lanes");
         uint256 n = input.length;
-        uint256 packedSize = (n + 15) / 16;
+        uint256 packedSize = (n + ELEMENTS_PER_WORD_16 - 1) / ELEMENTS_PER_WORD_16;
         packed = new uint256[](packedSize);
 
         for (uint256 w = 0; w < packedSize; w++) {
             uint256 word = 0;
-            for (uint256 k = 0; k < 16; k++) {
-                uint256 idx = w * 16 + k;
+            for (uint256 k = 0; k < ELEMENTS_PER_WORD_16; k++) {
+                uint256 idx = w * ELEMENTS_PER_WORD_16 + k;
                 if (idx >= n) break;
                 require(input[idx] < q, "Element exceeds modulus");
-                uint256 shift = (15 - k) * 16;
+                uint256 shift = (ELEMENTS_PER_WORD_16 - 1 - k) * BIT_WIDTH_16;
                 word |= (input[idx] << shift);
             }
             packed[w] = word;
@@ -114,10 +123,10 @@ library LWEPacking {
         unpacked = new uint256[](n);
 
         for (uint256 i = 0; i < n; i++) {
-            uint256 wordIdx = i / 16;
-            uint256 posInWord = i % 16;
-            uint256 shift = (15 - posInWord) * 16;
-            unpacked[i] = (packed[wordIdx] >> shift) & 0xFFFF;
+            uint256 wordIdx = i / ELEMENTS_PER_WORD_16;
+            uint256 posInWord = i % ELEMENTS_PER_WORD_16;
+            uint256 shift = (ELEMENTS_PER_WORD_16 - 1 - posInWord) * BIT_WIDTH_16;
+            unpacked[i] = (packed[wordIdx] >> shift) & MASK_16;
         }
     }
 }

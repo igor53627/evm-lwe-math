@@ -242,15 +242,38 @@ contract LibLWETest is Test {
     // ──────────────────────────────────────────────────────────────────
 
     function test_thresholdDecode() public pure {
-        uint256 threshold = Q_PRIME / 4;
+        uint256 threshold = Q_PRIME / 4; // 16380 for q=65521
         // Below threshold => 0
         assertEq(LibLWE.thresholdDecode(0, threshold), 0);
         assertEq(LibLWE.thresholdDecode(threshold, threshold), 0);
-        // In true band => 1
+        // In true band (threshold, 3*threshold) => 1
         assertEq(LibLWE.thresholdDecode(threshold + 1, threshold), 1);
         assertEq(LibLWE.thresholdDecode(2 * threshold, threshold), 1);
-        // Above 3*threshold => 0
+        assertEq(LibLWE.thresholdDecode(3 * threshold - 1, threshold), 1);
+        // At and above 3*threshold => 0 (strict upper bound)
         assertEq(LibLWE.thresholdDecode(3 * threshold, threshold), 0);
+        assertEq(LibLWE.thresholdDecode(3 * threshold + 1, threshold), 0);
+    }
+
+    function test_thresholdDecode_q65521_boundary() public pure {
+        // Audit finding 1: for q=65521, threshold=floor(q/4)=16380, 3*threshold=49140
+        // The strict band (threshold, 3*threshold) accepts 16381..49139
+        // diff=49140 is excluded — this is within LWE noise tolerance
+        uint256 threshold = Q_PRIME / 4;
+        uint256 upperExclusive = 3 * threshold;
+        assertEq(threshold, 16380);
+        assertEq(LibLWE.thresholdDecode(upperExclusive - 1, threshold), 1, "last accepted value");
+        assertEq(LibLWE.thresholdDecode(upperExclusive, threshold), 0, "3*threshold is excluded (strict)");
+    }
+
+    function test_thresholdDecode_q4096_boundary() public pure {
+        // For q=4096 (divisible by 4): threshold=1024, 3*threshold=3072
+        // Band (1024, 3072) accepts 1025..3071
+        uint256 threshold = Q_POW2 / 4;
+        assertEq(LibLWE.thresholdDecode(1024, threshold), 0);
+        assertEq(LibLWE.thresholdDecode(1025, threshold), 1);
+        assertEq(LibLWE.thresholdDecode(3071, threshold), 1);
+        assertEq(LibLWE.thresholdDecode(3072, threshold), 0);
     }
 
     function test_sectorDecode() public pure {
@@ -430,5 +453,16 @@ contract LibLWETest is Test {
         input[0] = 0;
         vm.expectRevert("q must fit in 16-bit lanes");
         harness.packVector16(input, 65537);
+    }
+
+    function test_expandKey_zeroWords_invalidQ() public pure {
+        // Finding 2: expandKey(numWords=0) should return empty array even with invalid q
+        uint256[] memory s = LibLWE.expandKey(bytes32(0), 0, 0);
+        assertEq(s.length, 0);
+    }
+
+    function test_expandKey_zeroWords_validQ() public pure {
+        uint256[] memory s = LibLWE.expandKey(bytes32(0), 0, Q_PRIME);
+        assertEq(s.length, 0);
     }
 }

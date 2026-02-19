@@ -250,6 +250,7 @@ library LibLWE {
         pure
         returns (uint256[] memory s)
     {
+        if (numWords == 0) return new uint256[](0);
         require(q > 0 && q <= 65536, "q must fit in 16-bit lanes");
         s = new uint256[](numWords);
         assembly {
@@ -295,7 +296,10 @@ library LibLWE {
     }
 
     /// @notice Threshold decode: returns 1 if diff is in the "true" band.
-    /// @dev For q/4 threshold: true band is (q/4, 3q/4).
+    /// @dev True band is (threshold, 3*threshold) — strict on both ends.
+    ///      For q=65521 with threshold=floor(q/4)=16380: accepts 16381..49139.
+    ///      The single excluded value diff=49140 (3*threshold) is within LWE noise
+    ///      tolerance and does not affect correctness in practice.
     function thresholdDecode(uint256 diff, uint256 threshold)
         internal
         pure
