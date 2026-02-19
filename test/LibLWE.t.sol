@@ -260,9 +260,10 @@ contract LibLWETest is Test {
         // The strict band (threshold, 3*threshold) accepts 16381..49139
         // diff=49140 is excluded — this is within LWE noise tolerance
         uint256 threshold = Q_PRIME / 4;
+        uint256 upperExclusive = 3 * threshold;
         assertEq(threshold, 16380);
-        assertEq(LibLWE.thresholdDecode(49139, threshold), 1, "49139 is last accepted value");
-        assertEq(LibLWE.thresholdDecode(49140, threshold), 0, "49140 = 3*threshold is excluded (strict)");
+        assertEq(LibLWE.thresholdDecode(upperExclusive - 1, threshold), 1, "last accepted value");
+        assertEq(LibLWE.thresholdDecode(upperExclusive, threshold), 0, "3*threshold is excluded (strict)");
     }
 
     function test_thresholdDecode_q4096_boundary() public pure {
@@ -461,7 +462,7 @@ contract LibLWETest is Test {
     }
 
     function test_expandKey_zeroWords_validQ() public pure {
-        uint256[] memory s = LibLWE.expandKey(bytes32(0), 0, 65521);
+        uint256[] memory s = LibLWE.expandKey(bytes32(0), 0, Q_PRIME);
         assertEq(s.length, 0);
     }
 }
