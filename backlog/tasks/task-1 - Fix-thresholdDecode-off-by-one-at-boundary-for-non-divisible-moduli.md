@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-02-18 21:50'
-updated_date: '2026-02-18 22:03'
+updated_date: '2026-02-19 05:20'
 labels:
   - audit
   - correctness
@@ -29,5 +29,5 @@ Audit finding 1 (Nethermind AuditAgent scan 36): For q=65521 where q%4!=0, thres
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Fixed all 5 audit findings from Nethermind AuditAgent scan 36. thresholdDecode uses inclusive upper bound (iszero(gt)), expandKey early-returns for numWords=0, magic numbers replaced with named constants, evm_version pinned to paris.
+Documented thresholdDecode strict upper bound (diff < 3*threshold). The excluded value at 3*threshold for non-divisible moduli (q=65521) is within LWE noise tolerance. Added boundary tests for q=65521 and q=4096. Also addressed remaining audit findings: expandKey early return for numWords=0, named constants in LWEPacking, evm_version=paris.
 <!-- SECTION:FINAL_SUMMARY:END -->
